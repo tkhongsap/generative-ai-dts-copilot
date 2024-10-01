@@ -1,0 +1,104 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Packages
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+wheels/
+share/python-wheels/
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook files
+.ipynb_checkpoints/
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# PyCharm
+.idea/
+
+# mypy
+.mypy_cache/
+
+# Pylint
+.pylint.d/
+
+# VS Code settings
+.vscode/
+
+# Streamlit specific - exclude sensitive and config files
+secrets.toml
+.streamlit/
+
+# MacOS-specific files
+.DS_Store
+
+# Backup files
+*~
+*.bak
+*.swp
+
+# Editor temp files
+*.~*~
+*.sublime-workspace
+*.sublime-project
+
+# Temporary files
+tmp/
+temp/
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# Ignore Pytest cache files
+.pytest_cache/
+
+# Ignore coverage reports
+coverage/
+
+# Ignore specific test results
+junit/
+
+# Local development environment files
+local_settings.py
+
+# Exclude .env file containing sensitive information
+.env
