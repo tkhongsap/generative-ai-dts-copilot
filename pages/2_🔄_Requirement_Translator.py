@@ -10,7 +10,6 @@ import openai
 # Import your custom CSS functions
 from utils.custom_css_banner import get_business_requirement_banner
 from utils.custom_css_style import (
-    get_content_container_style,
     get_content_style,
     get_copy_button_style
 )
@@ -28,7 +27,7 @@ st.set_page_config(
 
 # Apply custom CSS
 st.markdown(get_business_requirement_banner(), unsafe_allow_html=True)
-st.markdown(get_content_container_style(), unsafe_allow_html=True)  # Assuming this returns necessary CSS
+# Removed get_content_container_style() to eliminate unwanted styles
 
 # Initialize OpenAI API Key (ensure you have this in your environment or secrets)
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -79,12 +78,12 @@ def generate_business_requirement(input_text):
     """
     try:
         response = openai.chat.completions.create(
-            model="gpt-4o-mini",  # Ensure the model name is correct and accessible
+            model="gpt-4",  # Ensure the model name is correct and accessible
             messages=[
                 {"role": "system", "content": get_business_requirement_system_prompt()},
                 {"role": "user", "content": get_business_requirement_user_prompt(input_text)}
             ],
-            max_tokens=4000
+            max_tokens=2000
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -111,76 +110,36 @@ def create_copy_script(button_id, content_id):
     """
     return f"""
     <script>
-    const copyButton_{button_id} = document.getElementById('{button_id}');
-    const content_{content_id} = document.getElementById('{content_id}');
-
-    copyButton_{button_id}.addEventListener('click', () => {{
-        const textToCopy = content_{content_id}.innerText;
-        if (navigator.clipboard && window.isSecureContext) {{
-            // navigator.clipboard API method
-            navigator.clipboard.writeText(textToCopy).then(() => {{
-                // Change button to indicate success
-                copyButton_{button_id}.innerHTML = `
+    document.getElementById('{button_id}').addEventListener('click', function() {{
+        const content = document.getElementById('{content_id}');
+        if (content) {{
+            const textToCopy = content.innerText;
+            navigator.clipboard.writeText(textToCopy).then(function() {{
+                // Provide feedback
+                const button = document.getElementById('{button_id}');
+                const originalHTML = button.innerHTML;
+                button.innerHTML = `
                     <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#4285F4" style="margin-right: 4px;">
                         <path d="M0 0h24v24H0z" fill="none"/>
                         <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
                     </svg>
                     Copied!
                 `;
-                copyButton_{button_id}.style.backgroundColor = '#E8F0FE';
-                copyButton_{button_id}.style.color = '#4285F4';
-
-                setTimeout(() => {{
-                    copyButton_{button_id}.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
-                            <path d="M0 0h24v24H0z" fill="none"/>
-                            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                        </svg>
-                        Copy
-                    `;
-                    copyButton_{button_id}.style.backgroundColor = '#F1F3F4';
-                    copyButton_{button_id}.style.color = '#5F6368';
+                button.style.backgroundColor = '#E8F0FE';
+                button.style.color = '#4285F4';
+    
+                setTimeout(function() {{
+                    button.innerHTML = originalHTML;
+                    button.style.backgroundColor = '';
+                    button.style.color = '#5F6368';
                 }}, 2000);
             }})
-            .catch(err => {{
-                console.error('Failed to copy: ', err);
+            .catch(function(error) {{
+                console.error('Could not copy text: ', error);
                 alert('Failed to copy text.');
             }});
         }} else {{
-            // Fallback method
-            const textArea = document.createElement('textarea');
-            textArea.value = textToCopy;
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {{
-                document.execCommand('copy');
-                // Change button to indicate success
-                copyButton_{button_id}.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#4285F4" style="margin-right: 4px;">
-                        <path d="M0 0h24v24H0z" fill="none"/>
-                        <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-                    </svg>
-                    Copied!
-                `;
-                copyButton_{button_id}.style.backgroundColor = '#E8F0FE';
-                copyButton_{button_id}.style.color = '#4285F4';
-
-                setTimeout(() => {{
-                    copyButton_{button_id}.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
-                            <path d="M0 0h24v24H0z" fill="none"/>
-                            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                        </svg>
-                        Copy
-                    `;
-                    copyButton_{button_id}.style.backgroundColor = '#F1F3F4';
-                    copyButton_{button_id}.style.color = '#5F6368';
-                }}, 2000);
-            }} catch (err) {{
-                console.error('Fallback: Oops, unable to copy', err);
-                alert('Failed to copy text.');
-            }}
-            document.body.removeChild(textArea);
+            alert('Content to copy not found.');
         }}
     }});
     </script>
@@ -213,42 +172,15 @@ def main():
         help="You can upload a file or manually enter/edit your business requirements."
     )
 
-    # Layout: Process button and copy button side by side
+    # Layout: Process button and placeholder for future features
     col1, col2 = st.columns([3, 1])
 
     with col1:
         process_button = st.button("🔄 Process Requirement")
 
     with col2:
-        # Embed a copy button via HTML for Input Content
-        copy_button_html = f"""
-        <button onclick="copyInputText()" style="{get_copy_button_style()}">
-            <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
-                <path d="M0 0h24v24H0z" fill="none"/>
-                <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-            </svg>
-            Copy Input
-        </button>
-        <script>
-        function copyInputText() {{
-            // Select the text area by its unique key
-            const textArea = document.querySelector('textarea[data-baseweb="textarea"]');
-            if(textArea) {{
-                textArea.select();
-                textArea.setSelectionRange(0, 99999); // For mobile devices
-                navigator.clipboard.writeText(textArea.value).then(() => {{
-                    alert('Input content copied to clipboard!');
-                }}).catch(err => {{
-                    console.error('Failed to copy: ', err);
-                    alert('Failed to copy text.');
-                }});
-            }} else {{
-                alert('Text area not found!');
-            }}
-        }}
-        </script>
-        """
-        components.html(copy_button_html, height=50)
+        # Removed the "Copy Input" button as per your request
+        pass  # Placeholder if needed for future features
 
     if process_button:
         with st.spinner("Processing..."):
@@ -270,16 +202,16 @@ def main():
 
         # HTML content with copy button and script
         requirement_html = f"""
-        <div style="{get_content_container_style()}">
+        <div style="margin-top: 40px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <h4 style="margin: 0; color: #202124;">Business Requirement</h4>
                 {create_copy_button(copy_button_id)}
             </div>
+            <div id="{content_id}" style="{get_content_style()}">
+                {requirement_html_content}
+            </div>
+            {create_copy_script(copy_button_id, content_id)}
         </div>
-        <div id="{content_id}" style="{get_content_style()}">
-            {requirement_html_content}
-        </div>
-        {create_copy_script(copy_button_id, content_id)}
         """
 
         # Render the HTML content with embedded JavaScript
