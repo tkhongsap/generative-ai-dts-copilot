@@ -222,7 +222,7 @@ def main():
                             <h4 style="margin: 0; color: #202124;">Transcript Content</h4>
                         </div>
                         <div id="transcript-content" style="
-                            max-height: 400px;
+                            max-height: 450px;
                             overflow-y: auto;
                             border: 1px solid #E8EAED;
                             padding: 15px;
@@ -345,7 +345,7 @@ def main():
                                 <h4 style="margin: 0; color: #202124;">Summary Content</h4>
                             </div>
                             <div id="summary-content" style="
-                                max-height: 400px;
+                                max-height: 450px;
                                 overflow-y: auto;
                                 border: 1px solid #E8EAED;
                                 padding: 15px;
@@ -470,7 +470,7 @@ def main():
                                 <h4 style="margin: 0; color: #202124;">Detailed Report Content</h4>
                             </div>
                             <div id="report-content" style="
-                                max-height: 400px;
+                                max-height: 450px;
                                 overflow-y: auto;
                                 border: 1px solid #E8EAED;
                                 padding: 15px;
