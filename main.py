@@ -7,7 +7,7 @@ from utils.custom_css_main_page import get_main_custom_css
 from utils.custom_css_banner import get_main_banner
 
 # Set page config
-st.set_page_config(page_title="💡 D&T Productivity Copilot", page_icon="🚀", layout="wide")
+st.set_page_config(page_title="💡 D&T Copilot", page_icon="🚀", layout="wide")
 
 # Apply custom CSS
 st.markdown(get_main_custom_css(), unsafe_allow_html=True)

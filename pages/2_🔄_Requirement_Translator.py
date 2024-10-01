@@ -193,6 +193,8 @@ def main():
 
     # Display Business Requirement with Copy Button
     if 'business_requirement' in locals() and business_requirement:
+        st.subheader("Business Requirement")
+        
         # Convert business_requirement markdown to HTML with extensions for better formatting
         requirement_html_content = markdown.markdown(business_requirement, extensions=['tables', 'fenced_code'])
 
@@ -202,7 +204,7 @@ def main():
 
         # HTML content with copy button and script
         requirement_html = f"""
-        <div style="margin-top: 40px;">
+        <div style="background-color: #F0F2F6; border-radius: 0.5rem; padding: 1rem; margin-top: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <h4 style="margin: 0; color: #202124;">Business Requirement</h4>
                 {create_copy_button(copy_button_id)}

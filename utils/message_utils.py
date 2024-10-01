@@ -32,6 +32,10 @@ def message_func(text, user_icon_base64, assistant_icon_base64, is_user=False, m
     user_icon_base64 (str): Base64 encoded user avatar image.
     assistant_icon_base64 (str): Base64 encoded assistant avatar image.
     """
+
+    # Escape special HTML characters in the text to avoid Markdown interpretation
+    escaped_text = html.escape(text)
+
     avatar_base64 = user_icon_base64 if is_user else assistant_icon_base64
 
     if is_user:
@@ -43,7 +47,7 @@ def message_func(text, user_icon_base64, assistant_icon_base64, is_user=False, m
             f"""
                 <div style="display: flex; align-items: center; margin-bottom: 10px; justify-content: {message_alignment};">
                     <div style="background: {message_bg_color}; color: {message_text_color}; border-radius: 20px; padding: 10px; margin-right: 5px; max-width: 75%; font-size: 14px;">
-                        {text} \n </div>
+                        {escaped_text} \n </div>
                     <img src="{avatar_base64}" class="{avatar_class}" alt="avatar" style="width: 40px; height: 40px;" />
                 </div>
             """,
