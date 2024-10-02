@@ -55,20 +55,28 @@ if prompt:
     st.session_state["messages"].append({"role": "user", "content": prompt})
     message_func(prompt, user_icon_base64, assistant_icon_base64, is_user=True)
 
-    # If a file is uploaded, pass it to the Code Interpreter
+    # If a file is uploaded, pass it to the Code Interpreter and File Search
     file_id = None
+    
+    # File upload and handling
     if uploaded_file is not None:
-        # Upload the file using OpenAI's file API
         try:
-            file_content = uploaded_file.read()
+            # Optionally read the file content
+            # file_content = uploaded_file.read()
+
+            # Reset the file pointer to the beginning
+            uploaded_file.seek(0)
+
+            # Upload the file including the filename
             file = client.files.create(
-                file=io.BytesIO(file_content),
+                file=uploaded_file,
                 purpose="assistants"
             )
             file_id = file.id
             st.sidebar.success(f"File uploaded successfully with file_id: {file_id}")
         except Exception as e:
             st.sidebar.error(f"Failed to upload file: {str(e)}")
+
 
     # Generate a response using the assistant and pass the file if available
     response = generate_response(prompt, assistant_id, file_id)

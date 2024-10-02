@@ -44,7 +44,10 @@ def generate_response(user_message, assistant_id, file_id=None):
             message_params["attachments"] = [
                 {
                     "file_id": file_id,
-                    "tools": [{"type": "code_interpreter"}]
+                    "tools": [
+                        {"type": "code_interpreter"},
+                        {"type": "file_search"}
+                    ]
                 }
             ]
 
@@ -55,7 +58,10 @@ def generate_response(user_message, assistant_id, file_id=None):
         run_settings = {
             "thread_id": thread_id,
             "assistant_id": assistant_id,
-            "tools": [{"type": "code_interpreter"}]
+            "tools": [
+                {"type": "code_interpreter"},
+                {"type": "file_search"}
+            ]
         }
 
         # Run the thread
@@ -74,4 +80,3 @@ def generate_response(user_message, assistant_id, file_id=None):
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
         return "Error generating response. Please try again."
-
