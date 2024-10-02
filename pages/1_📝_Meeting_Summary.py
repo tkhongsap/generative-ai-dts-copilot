@@ -1,26 +1,26 @@
 import os
 import tempfile
 import io
+import time
 import streamlit as st
-
 import base64
 import streamlit.components.v1 as components
 
 from utils.custom_css_banner import get_meeting_summary_banner
-
 from pathlib import Path
 from pydub import AudioSegment
 import openai
 import re
-
 from utils.prompt_instructions import (
     get_summary_system_prompt,
     get_summary_user_prompt,
     get_detailed_report_system_prompt,
     get_detailed_report_user_prompt
 )
-
-import markdown  # Import the markdown library to convert markdown to HTML
+import markdown
+from utils.message_utils import message_func
+from utils.openai_utils import generate_response
+from openai import OpenAI
 
 # Set page config
 st.set_page_config(page_title="💡 D&T Meeting Summary", page_icon="📝", layout="wide")
@@ -28,8 +28,9 @@ st.set_page_config(page_title="💡 D&T Meeting Summary", page_icon="📝", layo
 # Apply custom CSS
 st.markdown(get_meeting_summary_banner(), unsafe_allow_html=True)
 
-# Initialize OpenAI API Key (ensure you have this in your environment or secrets)
+# Initialize OpenAI API Key and client
 openai.api_key = st.secrets["OPENAI_API_KEY"]
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # Modified logging function for the sidebar
 def log_step(step_name, color="darkblue", show=True):
@@ -114,6 +115,7 @@ def generate_summary(transcript):
         st.error(f"Error generating summary: {str(e)}")
         return None
 
+
 def generate_detailed_report(transcript):
     log_step("Generating detailed report...")
     try:
@@ -177,411 +179,258 @@ def main():
                     log_step("Generating detailed report...")
                     detailed_report = generate_detailed_report(full_transcript)
 
-                    # Create tabs with custom CSS for better visibility
-                    st.markdown("""
-                        <style>
-                        .stTabs [data-baseweb="tab-list"] {
-                            gap: 24px;
-                        }
-                        .stTabs [data-baseweb="tab"] {
-                            height: 50px;
-                            white-space: pre-wrap;
-                            border-radius: 4px 4px 0px 0px;
-                            padding-top: 10px;
-                            padding-bottom: 10px;
-                            padding-left: 20px;
-                            padding-right: 20px;
-                            color: #5F6368;
-                            font-weight: 400;
-                        }
-                        .stTabs [aria-selected="true"] {
-                            background-color: transparent;
-                            color: #4285F4;
-                            font-weight: 500;
-                            border-bottom: 2px solid #4285F4;
-                        }
-                        </style>""", unsafe_allow_html=True)
+                    # Save processed data to st.session_state
+                    st.session_state['full_transcript'] = full_transcript
+                    st.session_state['summary_content'] = summary_content
+                    st.session_state['detailed_report'] = detailed_report
+                    st.session_state['processing_completed'] = True
 
-                    tab1, tab2, tab3 = st.tabs(["Transcription", "Summary", "Detailed Report"])
+                    # Save the transcript to a temporary file with a proper extension
+                    transcript_file_path = os.path.join(temp_dir, "transcript.txt")
+                    with open(transcript_file_path, "w", encoding="utf-8") as f:
+                        f.write(full_transcript)
 
-                    # In the "Transcription" tab, display the full transcript
-                    with tab1:
-                        st.markdown(f"### 📄 Transcript: {uploaded_file.name}")
-                        
-                        # Convert transcript to HTML using markdown
-                        transcript_html = markdown.markdown(full_transcript)
-                        
-                        # Create HTML content with rendered markdown and copy button
-                        transcript_content = f"""
-                        <div style="
-                            background-color: #F8F9FA;
-                            border-radius: 8px;
-                            padding: 20px;
-                            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-                        ">
-                            <h4 style="margin: 0; color: #202124;">Transcript Content</h4>
-                        </div>
-                        <div id="transcript-content" style="
-                            max-height: 450px;
-                            overflow-y: auto;
-                            border: 1px solid #E8EAED;
-                            padding: 15px;
-                            background-color: white;
-                            font-size: 14px;
-                            line-height: 1.6;
-                            border-radius: 4px;
-                        ">
-                        {transcript_html}
-                        </div>
-                        <div style="text-align: right; margin-top: 10px;">
-                            <button id="copy-transcript-button" style="
-                                background-color: #F1F3F4;
-                                color: #5F6368;
-                                border: none;
-                                padding: 8px 16px;
-                                border-radius: 4px;
-                                cursor: pointer;
-                                display: inline-flex;
-                                align-items: center;
-                                font-size: 14px;
-                            ">
-                                <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
-                                    <path d="M0 0h24v24H0z" fill="none"/>
-                                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                                </svg>
-                                Copy
-                            </button>
-                        </div>
-                        <script>
-                        const copyButton_transcript = document.getElementById('copy-transcript-button');
-                        const content_transcript = document.getElementById('transcript-content');
+                    # Upload the file with the correct filename
+                    with open(transcript_file_path, "rb") as f:
+                        transcript_file = client.files.create(
+                            file=f,
+                            purpose='assistants'
+                        )
+                    transcript_file_id = transcript_file.id
 
-                        copyButton_transcript.addEventListener('click', () => {{
-                            const textToCopy = content_transcript.innerText;
-                            if (navigator.clipboard && window.isSecureContext) {{
-                                // navigator.clipboard API method
-                                navigator.clipboard.writeText(textToCopy).then(() => {{
-                                    // Change button to indicate success
-                                    copyButton_transcript.innerHTML = `
-                                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#4285F4" style="margin-right: 4px;">
-                                            <path d="M0 0h24v24H0z" fill="none"/>
-                                            <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-                                        </svg>
-                                        Copied!
-                                    `;
-                                    copyButton_transcript.style.backgroundColor = '#E8F0FE';
-                                    copyButton_transcript.style.color = '#4285F4';
+                    # Ensure the file is processed before proceeding
+                    file_status = client.files.retrieve(transcript_file_id).status
+                    while file_status != 'processed':
+                        time.sleep(1)
+                        file_status = client.files.retrieve(transcript_file_id).status
 
-                                    setTimeout(() => {{
-                                        copyButton_transcript.innerHTML = `
-                                            <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
-                                                <path d="M0 0h24v24H0z" fill="none"/>
-                                                <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                                            </svg>
-                                            Copy
-                                        `;
-                                        copyButton_transcript.style.backgroundColor = '#F1F3F4';
-                                        copyButton_transcript.style.color = '#5F6368';
-                                    }}, 2000);
-                                }})
-                                .catch(err => {{
-                                    console.error('Failed to copy: ', err);
-                                }});
-                            }} else {{
-                                // Fallback method
-                                const textArea = document.createElement('textarea');
-                                textArea.value = textToCopy;
-                                document.body.appendChild(textArea);
-                                textArea.select();
-                                try {{
-                                    document.execCommand('copy');
-                                    // Change button to indicate success
-                                    copyButton_transcript.innerHTML = `
-                                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#4285F4" style="margin-right: 4px;">
-                                            <path d="M0 0h24v24H0z" fill="none"/>
-                                            <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-                                        </svg>
-                                        Copied!
-                                    `;
-                                    copyButton_transcript.style.backgroundColor = '#E8F0FE';
-                                    copyButton_transcript.style.color = '#4285F4';
-
-                                    setTimeout(() => {{
-                                        copyButton_transcript.innerHTML = `
-                                            <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
-                                                <path d="M0 0h24v24H0z" fill="none"/>
-                                                <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                                            </svg>
-                                            Copy
-                                        `;
-                                        copyButton_transcript.style.backgroundColor = '#F1F3F4';
-                                        copyButton_transcript.style.color = '#5F6368';
-                                    }}, 2000);
-                                }} catch (err) {{
-                                    console.error('Fallback: Oops, unable to copy', err);
-                                }}
-                                document.body.removeChild(textArea);
-                            }}
-                        }});
-                        </script>
-                        """
-                        components.html(transcript_content, height=700, scrolling=True)
-
-                    # In the "Summary" tab, display the summary content
-                    with tab2:
-                        st.markdown("### 📊 Summary")
-                        if summary_content:
-                            # Convert summary to HTML using markdown
-                            summary_html = markdown.markdown(summary_content)
-                            
-                            # Create HTML content with rendered markdown and copy button
-                            summary_content_html = f"""
-                            <div style="
-                                background-color: #F8F9FA;
-                                border-radius: 8px;
-                                padding: 20px;
-                                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-                            ">
-                                <h4 style="margin: 0; color: #202124;">Summary Content</h4>
-                            </div>
-                            <div id="summary-content" style="
-                                max-height: 450px;
-                                overflow-y: auto;
-                                border: 1px solid #E8EAED;
-                                padding: 15px;
-                                background-color: white;
-                                font-size: 14px;
-                                line-height: 1.6;
-                                border-radius: 4px;
-                            ">
-                            {summary_html}
-                            </div>
-                            <div style="text-align: right; margin-top: 10px;">
-                                <button id="copy-summary-button" style="
-                                    background-color: #F1F3F4;
-                                    color: #5F6368;
-                                    border: none;
-                                    padding: 8px 16px;
-                                    border-radius: 4px;
-                                    cursor: pointer;
-                                    display: inline-flex;
-                                    align-items: center;
-                                    font-size: 14px;
-                                ">
-                                    <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
-                                        <path d="M0 0h24v24H0z" fill="none"/>
-                                        <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                                    </svg>
-                                    Copy
-                                </button>
-                            </div>
-                            <script>
-                            const copyButton_summary = document.getElementById('copy-summary-button');
-                            const content_summary = document.getElementById('summary-content');
-
-                            copyButton_summary.addEventListener('click', () => {{
-                                const textToCopy = content_summary.innerText;
-                                if (navigator.clipboard && window.isSecureContext) {{
-                                    // navigator.clipboard API method
-                                    navigator.clipboard.writeText(textToCopy).then(() => {{
-                                        // Change button to indicate success
-                                        copyButton_summary.innerHTML = `
-                                            <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#4285F4" style="margin-right: 4px;">
-                                                <path d="M0 0h24v24H0z" fill="none"/>
-                                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-                                            </svg>
-                                            Copied!
-                                        `;
-                                        copyButton_summary.style.backgroundColor = '#E8F0FE';
-                                        copyButton_summary.style.color = '#4285F4';
-
-                                        setTimeout(() => {{
-                                            copyButton_summary.innerHTML = `
-                                                <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
-                                                    <path d="M0 0h24v24H0z" fill="none"/>
-                                                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                                                </svg>
-                                                Copy
-                                            `;
-                                            copyButton_summary.style.backgroundColor = '#F1F3F4';
-                                            copyButton_summary.style.color = '#5F6368';
-                                        }}, 2000);
-                                    }})
-                                    .catch(err => {{
-                                        console.error('Failed to copy: ', err);
-                                    }});
-                                }} else {{
-                                    // Fallback method
-                                    const textArea = document.createElement('textarea');
-                                    textArea.value = textToCopy;
-                                    document.body.appendChild(textArea);
-                                    textArea.select();
-                                    try {{
-                                        document.execCommand('copy');
-                                        // Change button to indicate success
-                                        copyButton_summary.innerHTML = `
-                                            <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#4285F4" style="margin-right: 4px;">
-                                                <path d="M0 0h24v24H0z" fill="none"/>
-                                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-                                            </svg>
-                                            Copied!
-                                        `;
-                                        copyButton_summary.style.backgroundColor = '#E8F0FE';
-                                        copyButton_summary.style.color = '#4285F4';
-
-                                        setTimeout(() => {{
-                                            copyButton_summary.innerHTML = `
-                                                <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
-                                                    <path d="M0 0h24v24H0z" fill="none"/>
-                                                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                                                </svg>
-                                                Copy
-                                            `;
-                                            copyButton_summary.style.backgroundColor = '#F1F3F4';
-                                            copyButton_summary.style.color = '#5F6368';
-                                        }}, 2000);
-                                    }} catch (err) {{
-                                        console.error('Fallback: Oops, unable to copy', err);
-                                    }}
-                                    document.body.removeChild(textArea);
-                                }}
-                            }});
-                            </script>
-                            """
-                            components.html(summary_content_html, height=700, scrolling=True)
-                        else:
-                            st.error("Failed to generate summary. Please try again.")
-
-                    # In the "Detailed Report" tab, display the detailed analysis
-                    with tab3:
-                        st.markdown("### 📑 Detailed Report")
-                        if detailed_report:
-                            # Convert detailed report to HTML using markdown
-                            report_html = markdown.markdown(detailed_report)
-                            
-                            # Create HTML content with rendered markdown and copy button
-                            report_content_html = f"""
-                            <div style="
-                                background-color: #F8F9FA;
-                                border-radius: 8px;
-                                padding: 20px;
-                                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-                            ">
-                                <h4 style="margin: 0; color: #202124;">Detailed Report Content</h4>
-                            </div>
-                            <div id="report-content" style="
-                                max-height: 450px;
-                                overflow-y: auto;
-                                border: 1px solid #E8EAED;
-                                padding: 15px;
-                                background-color: white;
-                                font-size: 14px;
-                                line-height: 1.6;
-                                border-radius: 4px;
-                            ">
-                            {report_html}
-                            </div>
-                            <div style="text-align: right; margin-top: 10px;">
-                                <button id="copy-report-button" style="
-                                    background-color: #F1F3F4;
-                                    color: #5F6368;
-                                    border: none;
-                                    padding: 8px 16px;
-                                    border-radius: 4px;
-                                    cursor: pointer;
-                                    display: inline-flex;
-                                    align-items: center;
-                                    font-size: 14px;
-                                ">
-                                    <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
-                                        <path d="M0 0h24v24H0z" fill="none"/>
-                                        <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                                    </svg>
-                                    Copy
-                                </button>
-                            </div>
-                            <script>
-                            const copyButton_report = document.getElementById('copy-report-button');
-                            const content_report = document.getElementById('report-content');
-
-                            copyButton_report.addEventListener('click', () => {{
-                                const textToCopy = content_report.innerText;
-                                if (navigator.clipboard && window.isSecureContext) {{
-                                    // navigator.clipboard API method
-                                    navigator.clipboard.writeText(textToCopy).then(() => {{
-                                        // Change button to indicate success
-                                        copyButton_report.innerHTML = `
-                                            <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#4285F4" style="margin-right: 4px;">
-                                                <path d="M0 0h24v24H0z" fill="none"/>
-                                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-                                            </svg>
-                                            Copied!
-                                        `;
-                                        copyButton_report.style.backgroundColor = '#E8F0FE';
-                                        copyButton_report.style.color = '#4285F4';
-
-                                        setTimeout(() => {{
-                                            copyButton_report.innerHTML = `
-                                                <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
-                                                    <path d="M0 0h24v24H0z" fill="none"/>
-                                                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                                                </svg>
-                                                Copy
-                                            `;
-                                            copyButton_report.style.backgroundColor = '#F1F3F4';
-                                            copyButton_report.style.color = '#5F6368';
-                                        }}, 2000);
-                                    }})
-                                    .catch(err => {{
-                                        console.error('Failed to copy: ', err);
-                                    }});
-                                }} else {{
-                                    // Fallback method
-                                    const textArea = document.createElement('textarea');
-                                    textArea.value = textToCopy;
-                                    document.body.appendChild(textArea);
-                                    textArea.select();
-                                    try {{
-                                        document.execCommand('copy');
-                                        // Change button to indicate success
-                                        copyButton_report.innerHTML = `
-                                            <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#4285F4" style="margin-right: 4px;">
-                                                <path d="M0 0h24v24H0z" fill="none"/>
-                                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-                                            </svg>
-                                            Copied!
-                                        `;
-                                        copyButton_report.style.backgroundColor = '#E8F0FE';
-                                        copyButton_report.style.color = '#4285F4';
-
-                                        setTimeout(() => {{
-                                            copyButton_report.innerHTML = `
-                                                <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
-                                                    <path d="M0 0h24v24H0z" fill="none"/>
-                                                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                                                </svg>
-                                                Copy
-                                            `;
-                                            copyButton_report.style.backgroundColor = '#F1F3F4';
-                                            copyButton_report.style.color = '#5F6368';
-                                        }}, 2000);
-                                    }} catch (err) {{
-                                        console.error('Fallback: Oops, unable to copy', err);
-                                    }}
-                                    document.body.removeChild(textArea);
-                                }}
-                            }});
-                            </script>
-                            """
-                            components.html(report_content_html, height=700, scrolling=True)
-                        else:
-                            st.error("Failed to generate detailed report. Please try again.")
+                    # Save the processed file ID to session state
+                    st.session_state['transcript_file_id'] = transcript_file_id
 
             except Exception as e:
                 st.sidebar.error(f"Error during processing: {str(e)}")
-                st.exception(e)  # This will print the full traceback for debugging
+                st.exception(e)
     elif process_button and not uploaded_file:
         st.sidebar.warning("Please upload a file before processing.")
+
+    # Display content if processing has been completed
+    if st.session_state.get('processing_completed', False):
+        display_processed_content()
+
+    # --- Chat Interface Section ---
+    display_chat_interface()
+
+def display_processed_content():
+    # Create tabs with custom CSS for better visibility
+    st.markdown("""
+        <style>
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 24px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            height: 50px;
+            white-space: pre-wrap;
+            border-radius: 4px 4px 0px 0px;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            padding-left: 20px;
+            padding-right: 20px;
+            color: #5F6368;
+            font-weight: 400;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: transparent;
+            color: #4285F4;
+            font-weight: 500;
+            border-bottom: 2px solid #4285F4;
+        }
+        </style>""", unsafe_allow_html=True)
+
+    tab1, tab2, tab3 = st.tabs(["Transcription", "Summary", "Detailed Report"])
+
+    with tab1:
+        st.markdown(f"### 📄 Transcript")
+        transcript_html = markdown.markdown(st.session_state['full_transcript'])
+        components.html(create_content_with_copy_button("transcript", transcript_html), height=700, scrolling=True)
+
+    with tab2:
+        st.markdown("### 📊 Summary")
+        if st.session_state['summary_content']:
+            summary_html = markdown.markdown(st.session_state['summary_content'])
+            components.html(create_content_with_copy_button("summary", summary_html), height=700, scrolling=True)
+        else:
+            st.error("Failed to generate summary. Please try again.")
+
+    with tab3:
+        st.markdown("### 📑 Detailed Report")
+        if st.session_state['detailed_report']:
+            report_html = markdown.markdown(st.session_state['detailed_report'])
+            components.html(create_content_with_copy_button("report", report_html), height=700, scrolling=True)
+        else:
+            st.error("Failed to generate detailed report. Please try again.")
+
+def create_content_with_copy_button(content_type, content_html):
+    return f"""
+    <div style="
+        background-color: #F8F9FA;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    ">
+        <h4 style="margin: 0; color: #202124;">{content_type.capitalize()} Content</h4>
+    </div>
+    <div id="{content_type}-content" style="
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #E8EAED;
+        padding: 15px;
+        background-color: white;
+        font-size: 14px;
+        line-height: 1.6;
+        border-radius: 4px;
+    ">
+    {content_html}
+    </div>
+    <div style="text-align: right; margin-top: 10px;">
+        <button id="copy-{content_type}-button" style="
+            background-color: #F1F3F4;
+            color: #5F6368;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            font-size: 14px;
+        ">
+            <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
+                <path d="M0 0h24v24H0z" fill="none"/>
+                <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+            </svg>
+            Copy
+        </button>
+    </div>
+    <script>
+    const copyButton_{content_type} = document.getElementById('copy-{content_type}-button');
+    const content_{content_type} = document.getElementById('{content_type}-content');
+
+    copyButton_{content_type}.addEventListener('click', () => {{
+        const textToCopy = content_{content_type}.innerText;
+        if (navigator.clipboard && window.isSecureContext) {{
+            // navigator.clipboard API method
+            navigator.clipboard.writeText(textToCopy).then(() => {{
+                // Change button to indicate success
+                copyButton_{content_type}.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#4285F4" style="margin-right: 4px;">
+                        <path d="M0 0h24v24H0z" fill="none"/>
+                        <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                    </svg>
+                    Copied!
+                `;
+                copyButton_{content_type}.style.backgroundColor = '#E8F0FE';
+                copyButton_{content_type}.style.color = '#4285F4';
+
+                setTimeout(() => {{
+                    copyButton_{content_type}.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
+                            <path d="M0 0h24v24H0z" fill="none"/>
+                            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                        </svg>
+                        Copy
+                    `;
+                    copyButton_{content_type}.style.backgroundColor = '#F1F3F4';
+                    copyButton_{content_type}.style.color = '#5F6368';
+                }}, 2000);
+            }})
+            .catch(err => {{
+                console.error('Failed to copy: ', err);
+            }});
+        }} else {{
+            // Fallback method
+            const textArea = document.createElement('textarea');
+            textArea.value = textToCopy;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {{
+                document.execCommand('copy');
+                // Change button to indicate success
+                copyButton_{content_type}.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#4285F4" style="margin-right: 4px;">
+                        <path d="M0 0h24v24H0z" fill="none"/>
+                        <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                    </svg>
+                    Copied!
+                `;
+                copyButton_{content_type}.style.backgroundColor = '#E8F0FE';
+                copyButton_{content_type}.style.color = '#4285F4';
+
+                setTimeout(() => {{
+                    copyButton_{content_type}.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#5F6368" style="margin-right: 4px;">
+                            <path d="M0 0h24v24H0z" fill="none"/>
+                            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                        </svg>
+                        Copy
+                    `;
+                    copyButton_{content_type}.style.backgroundColor = '#F1F3F4';
+                    copyButton_{content_type}.style.color = '#5F6368';
+                }}, 2000);
+            }} catch (err) {{
+                console.error('Fallback: Oops, unable to copy', err);
+            }}
+            document.body.removeChild(textArea);
+        }}
+    }});
+    </script>
+    """
+
+def display_chat_interface():
+    # Set assistant id (meeting summary assistant)
+    assistant_id = "asst_xPItAapKJu36iVy0D9AwdOZ7"  # Replace with your assistant ID
+
+    # Clear other assistants' message history
+    for key in ['chat_assistant_messages', 'coding_assistant_messages', 'requirement_translator_messages']:
+        if key in st.session_state:
+            del st.session_state[key]
+
+    # Initialize chat history
+    if "meeting_summary_messages" not in st.session_state:
+        st.session_state["meeting_summary_messages"] = [
+            {"role": "assistant", "content": "👋 Hello! I'm your Meeting Summary Assistant. How can I help you with the meeting transcript and summary?"}
+        ]
+
+    # Load user and assistant icons
+    def get_image_base64(image_path):
+        with open(image_path, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
+        return f"data:image/png;base64,{encoded_string}"
+
+    user_icon_path = "image/user_icon.png"
+    assistant_icon_path = "image/assistant_icon.png"
+    user_icon_base64 = get_image_base64(user_icon_path)
+    assistant_icon_base64 = get_image_base64(assistant_icon_path)
+
+    # Display the chat history
+    for message in st.session_state["meeting_summary_messages"]:
+        is_user = message["role"] == "user"
+        message_func(message["content"], user_icon_base64, assistant_icon_base64, is_user=is_user)
+
+    # Accept user input
+    prompt = st.chat_input("Your message")
+
+    # Handle user input
+    if prompt:
+        st.session_state["meeting_summary_messages"].append({"role": "user", "content": prompt})
+        message_func(prompt, user_icon_base64, assistant_icon_base64, is_user=True)
+
+        # Retrieve the transcript file ID from session state
+        transcript_file_id = st.session_state.get("transcript_file_id")
+
+        # Generate a response using the assistant and pass the transcript file ID if available
+        response = generate_response(prompt, assistant_id, transcript_file_id)
+
+        st.session_state["meeting_summary_messages"].append({"role": "assistant", "content": response})
+        message_func(response, user_icon_base64, assistant_icon_base64)
 
 if __name__ == "__main__":
     main()
