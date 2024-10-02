@@ -201,3 +201,54 @@ def get_code_assistant_banner():
         </div>
     </div>
     """
+
+def get_chat_assistant_banner():
+    return """
+    <style>
+    .main-header {
+        background: linear-gradient(135deg, #2e7bcf, #1a4f8a); /* Keep the same color tone */
+        padding: 0.8rem;  /* Same reduced padding */
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+    .main-header h1 {
+        color: white;
+        font-size: 2rem;  /* Keep consistent font size */
+        margin: 0;
+        text-align: center;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+    .main-header p {
+        color: #f0f0f0;
+        font-size: 1.2rem;
+        margin: 0.5rem 0 0 0;
+        text-align: center;
+    }
+    .benefit-pills {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+    .benefit-pill {
+        background-color: rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 0.3rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        backdrop-filter: blur(5px);
+    }
+    </style>
+    <div class="main-header">
+        <h1>💬 D&T Chat Assistant: Your AI Companion</h1>
+        <p>Engage in intelligent conversations on any topic, from technical queries to general knowledge.</p>
+        <div class="benefit-pills">
+            <span class="benefit-pill">🌐 Multilingual</span>
+            <span class="benefit-pill">💡 Versatile</span>
+            <span class="benefit-pill">📚 Knowledgeable</span>
+        </div>
+    </div>
+    """

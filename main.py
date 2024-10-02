@@ -65,14 +65,20 @@ agents = [
         "title": "💻 Code Assistant",
         "description": "Get AI-powered coding help and suggestions.",
         "page_link": "pages/3_💻_Coding_Assistant.py"
+    },
+    {
+        "image": "chat_assistant_icon.png",
+        "title": "💬 Chat Assistant",
+        "description": "Engage with a multilingual AI for various tasks and queries.",
+        "page_link": "pages/4_💬_Chat_Assistant.py"
     }
 ]
 
-# Display agent cards in a single row
+# Display agent cards in two rows
 cols = st.columns(3)
 for i, agent in enumerate(agents):
     create_agent_card(
-        cols[i],
+        cols[i % 3],
         os.path.join(os.path.dirname(__file__), "image", agent["image"]),
         agent["title"],
         agent["description"],

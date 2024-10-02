@@ -6,32 +6,32 @@ import io
 
 from utils.message_utils import message_func
 from utils.openai_utils import generate_response
-from utils.custom_css_banner import get_code_assistant_banner
+from utils.custom_css_banner import get_chat_assistant_banner
 from openai import OpenAI
 
 # Display the custom banner in the UI
-st.markdown(get_code_assistant_banner(), unsafe_allow_html=True)
+st.markdown(get_chat_assistant_banner(), unsafe_allow_html=True)
 
 # Initialize OpenAI client
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # Set assistant ID (customized assistant)
-assistant_id = "asst_B4FNFJXuQhRegez9HXM6GPVz" # coding assistant
+assistant_id = "asst_xPItAapKJu36iVy0D9AwdOZ7" 
 
 warnings.filterwarnings("ignore")
 
 # Clear other assistants' message history
-if 'chat_assistant_messages' in st.session_state:
-    del st.session_state['chat_assistant_messages']
+if 'coding_assistant_messages' in st.session_state:
+    del st.session_state['coding_assistant_messages']
 if 'meeting_summary_messages' in st.session_state:
     del st.session_state['meeting_summary_messages']
 if 'requirement_translator_messages' in st.session_state:
     del st.session_state['requirement_translator_messages']
 
 # Initialize session state for chat history
-if "coding_assistant_messages" not in st.session_state:
-    st.session_state["coding_assistant_messages"] = [
-        {"role": "assistant", "content": "Hi there! I'm your Code Assistant. How can I assist you today?"}
+if "chat_assistant_messages" not in st.session_state:
+    st.session_state["chat_assistant_messages"] = [
+        {"role": "assistant", "content": "👋 Hello! I'm D&T Assistant, your multilingual AI companion. How can I help you today? Feel free to ask me anything"}
     ]
 
 # Load user and assistant icons
@@ -46,7 +46,7 @@ user_icon_base64 = get_image_base64(user_icon_path)
 assistant_icon_base64 = get_image_base64(assistant_icon_path)
 
 # Display the chat history
-for message in st.session_state["coding_assistant_messages"]:
+for message in st.session_state["chat_assistant_messages"]:
     is_user = message["role"] == "user"
     message_func(message["content"], user_icon_base64, assistant_icon_base64, is_user=is_user)
 
@@ -59,7 +59,7 @@ uploaded_file = st.sidebar.file_uploader("Attach a file")
 
 # Handle user input and file upload
 if prompt:
-    st.session_state["coding_assistant_messages"].append({"role": "user", "content": prompt})
+    st.session_state["chat_assistant_messages"].append({"role": "user", "content": prompt})
     message_func(prompt, user_icon_base64, assistant_icon_base64, is_user=True)
 
     # If a file is uploaded, pass it to the Code Interpreter and File Search
@@ -83,7 +83,7 @@ if prompt:
 
     # Generate a response using the assistant and pass the file if available
     response = generate_response(prompt, assistant_id, file_id)
-    st.session_state["coding_assistant_messages"].append({"role": "assistant", "content": response})
+    st.session_state["chat_assistant_messages"].append({"role": "assistant", "content": response})
     message_func(response, user_icon_base64, assistant_icon_base64)
 
 
