@@ -11,8 +11,7 @@ client = OpenAI(api_key=api_key)
 def wait_on_run(run, thread_id):
     while run.status == 'queued' or run.status == 'in_progress':
         run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
-        # time.sleep(4)
-        # print(run.status)
+        # time.sleep(0.5)  # Add a small delay to avoid excessive API calls
 
 # function: display the response
 def display_thread_messages(messages):
@@ -23,9 +22,8 @@ def display_thread_messages(messages):
     # Join the list into a single string separated by newlines
     return "\n\n".join(message_texts)
 
-def generate_response(user_message, assistant_id):
+def generate_response(user_message, assistant_id, file_id=None):
     if 'thread_id' not in st.session_state:
-        # initiate a new thread if one does not exist in session state
         thread = client.beta.threads.create()
         st.session_state['thread_id'] = thread.id
         print(f"New thread created: {thread.id}")
@@ -34,26 +32,46 @@ def generate_response(user_message, assistant_id):
     thread_id = st.session_state['thread_id']
 
     try:
-        # add user_message to the thread
-        message = client.beta.threads.messages.create(
-            thread_id=thread_id,
-            role='user',
-            content=user_message)
+        # Prepare the message parameters
+        message_params = {
+            "thread_id": thread_id,
+            "role": "user",
+            "content": user_message
+        }
 
-        # run a thread using required assistant
-        run = client.beta.threads.runs.create(
-            thread_id=thread_id,
-            assistant_id=assistant_id)
+        # Add attachments if a file_id is provided
+        if file_id:
+            message_params["attachments"] = [
+                {
+                    "file_id": file_id,
+                    "tools": [{"type": "code_interpreter"}]
+                }
+            ]
 
-        with st.spinner("Elfie is responding..."):
+        # Add user message to the thread
+        message = client.beta.threads.messages.create(**message_params)
+
+        # Prepare run settings without 'tool_resources'
+        run_settings = {
+            "thread_id": thread_id,
+            "assistant_id": assistant_id,
+            "tools": [{"type": "code_interpreter"}]
+        }
+
+        # Run the thread
+        run = client.beta.threads.runs.create(**run_settings)
+
+        with st.spinner("Responding..."):
             wait_on_run(run, thread_id)
 
         messages = client.beta.threads.messages.list(
             thread_id=thread_id,
             order='asc',
-            after=message.id)
+            after=message.id
+        )
 
         return display_thread_messages(messages)
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
         return "Error generating response. Please try again."
+
